@@ -1,71 +1,50 @@
 <?php
 
-namespace App\Http\Controllers;
-
-use App\Models\User;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Route;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
+use App\Models\User;
 
-class AuthController extends Controller
-{
-    public function register(Request $request)
-    {
-        // Validasi data
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'username' => ['required', 'string', 'max:255', 'unique:users'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:4', 'confirmed'],
-        ]);
+// ====================================================
+// ROUTE AUTENTIKASI TANPA TOKEN
+// ====================================================
+Route::post('/register', [AuthController::class, 'register'])
+    ->withoutMiddleware(EnsureFrontendRequestsAreStateful::class);
 
-        // Buat user
-        $user = User::create([
-            'name' => $request->name,
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+Route::post('/login', [AuthController::class, 'login'])
+    ->withoutMiddleware(EnsureFrontendRequestsAreStateful::class);
 
-        // Buat token Sanctum
-        $token = $user->createToken('auth_token')->plainTextToken;
+// ====================================================
+// ROUTE DENGAN TOKEN (AUTH SANCTUM)
+// ====================================================
+Route::middleware('auth:sanctum')->group(function () {
 
-        return response()->json([
-            'data' => [
-                'id' => $user->id,
-                'username' => $user->username,
-                'email' => $user->email,
-                'token' => $token,
-            ]
-        ], 201); // 201 Created
-    }
+    // Profil user yang sedang login
+    Route::get('/me', [AuthController::class, 'me']);
 
-    public function login(Request $request)
-    {
-        // Validasi data
-        $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string',
-        ]);
+    // Logout (hapus token)
+    Route::post('/logout', [AuthController::class, 'logout']);
 
-        // Coba login berdasarkan username
-        if (!Auth::attempt(['username' => $request->username, 'password' => $request->password])) {
-            throw ValidationException::withMessages([
-                'username' => ['Kredensial login tidak valid.'],
-            ]);
-        }
-
-        $user = Auth::user();
-
-        // Buat token baru
-        $token = $user->createToken('auth_token')->plainTextToken;
+    // Dashboard API — hanya bisa diakses setelah login
+    Route::get('/dashboard', function (Request $request) {
+        $user = $request->user(); // ambil user dari token aktif
 
         return response()->json([
+            'message' => 'Welcome to your dashboard, ' . $user->name,
             'data' => [
-                'id' => $user->id,
-                'token' => $token,
+                'total_users' => User::count(),
+                'recent_users' => User::latest()->take(5)->get([
+                    'id', 'name', 'username', 'email'
+                ]),
             ]
-        ], 200); // 200 OK
-    }
-}
+        ], 200);
+    });
+
+    // CRUD User
+    Route::get('/users', [UserController::class, 'index']);
+    Route::get('/users/{user}', [UserController::class, 'show']);
+    Route::put('/users/{user}', [UserController::class, 'update']);
+    Route::delete('/users/{user}', [UserController::class, 'destroy']);
+});

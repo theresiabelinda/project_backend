@@ -5,16 +5,24 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
 
 class UserController extends Controller
 {
+    // GET /api/users
+    public function index()
+    {
+        // Ambil semua user (bisa juga kamu filter kalau mau)
+        $users = User::all();
+
+        return response()->json($users, 200);
+    }
+
     // GET /api/users/{id}
     public function show(User $user)
     {
-        // Otorisasi: Hanya user pemilik akun yang bisa melihat data mereka sendiri
+        // Otorisasi: hanya user pemilik akun yg bisa lihat
         if (Auth::id() !== $user->id) {
-            abort(403, 'Akses Ditolak. Anda tidak berhak mengubah data ini.');
+            abort(403, 'Akses Ditolak. Anda tidak berhak melihat data ini.');
         }
 
         return response()->json([
@@ -25,13 +33,12 @@ class UserController extends Controller
     // PUT /api/users/{id}
     public function update(Request $request, User $user)
     {
-        // Otorisasi: Hanya user pemilik akun yang bisa update
+        // Otorisasi: hanya user pemilik akun yg bisa update
         if (Auth::id() !== $user->id) {
-            // Ini akan membuat test 'unauthorized_user_cannot_access_other_users_data' lulus 403
             abort(403, 'Akses Ditolak. Anda tidak berhak mengubah data ini.');
         }
 
-        // Validasi (hanya username dan name yang dicontohkan)
+        // Validasi
         $request->validate([
             'name' => 'string|max:255|nullable',
             'username' => 'string|max:255|unique:users,username,' . $user->id,
@@ -48,12 +55,11 @@ class UserController extends Controller
     // DELETE /api/users/{id}
     public function destroy(User $user)
     {
-        // Otorisasi: Hanya user pemilik akun yang bisa menghapus
+        // Otorisasi: hanya user pemilik akun yg bisa hapus
         if (Auth::id() !== $user->id) {
-            abort(403, 'Akses Ditolak. Anda tidak berhak mengubah data ini.');
+            abort(403, 'Akses Ditolak. Anda tidak berhak menghapus data ini.');
         }
 
-        // Hapus
         $user->delete();
 
         return response()->json([
