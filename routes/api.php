@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
+
+
 // --- ROUTE AUTENTIKASI (TIDAK MEMERLUKAN TOKEN) ---
 // Ini mengatasi masalah 404 pada test register/login.
 Route::post('register', [AuthController::class, 'register']);
